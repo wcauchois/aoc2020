@@ -3,7 +3,6 @@ mod utils;
 
 use nom::branch::alt;
 use nom::combinator::{map, verify};
-use nom::error::ParseError;
 use nom::multi::{many1, separated_list1};
 use nom::sequence::delimited;
 use nom::{combinator::map_res, IResult};
@@ -30,6 +29,7 @@ enum Rule {
 #[derive(Debug)]
 struct PuzzleInput {
     rule_map: HashMap<i32, Rule>,
+    messages: Vec<String>,
 }
 
 fn parse_number(input: &[Token]) -> IResult<&[Token], i32> {
@@ -68,26 +68,48 @@ fn parse_rule(input: &[Token]) -> IResult<&[Token], (i32, Rule)> {
     let (input, rule_idx) = parse_number(input)?;
     let (input, _) = verify(take1, |tok| matches!(tok, Token::Colon))(input)?;
     let (input, rule) = alt((parse_composite_rule, parse_literal_rule))(input)?;
-
     Ok((input, (rule_idx, rule)))
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn read_puzzle_input() -> Result<PuzzleInput, Box<dyn std::error::Error>> {
     let file = File::open(INPUT_FILENAME)?;
     let lines = io::BufReader::new(file).lines();
-    for line in lines {
-        let line = line?;
+
+    let mut rule_map: HashMap<i32, Rule> = HashMap::new();
+    let mut messages: Vec<String> = Vec::new();
+
+    enum ParseState {
+        Rules,
+        Messages,
     }
 
-    parse_rule(&[
-        Token::Number(0),
-        Token::Colon,
-        Token::Number(1),
-        Token::Number(3),
-        Token::Pipe,
-        Token::Number(2),
-        Token::Number(4),
-    ])?;
+    let mut parse_state = ParseState::Rules;
+
+    for line in lines {
+        let line = line?;
+        match parse_state {
+            ParseState::Rules => {
+                if line == "" {
+                    parse_state = ParseState::Messages;
+                    continue;
+                }
+                let (_, (rule_idx, rule)) = parse_rule(&lex(&line)).map_err(|_e| {
+                    io::Error::new(io::ErrorKind::Other, "Failed to parse ticket rule")
+                })?;
+                rule_map.insert(rule_idx, rule);
+            }
+            ParseState::Messages => {
+                messages.push(line);
+            }
+        }
+    }
+
+    Ok(PuzzleInput { rule_map, messages })
+}
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let puzzle_input = read_puzzle_input();
+    println!("Parsed puzzle input: {:?}", puzzle_input);
 
     Ok(())
 }
