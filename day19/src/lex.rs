@@ -15,7 +15,10 @@ fn get_number<T: Iterator<Item = char>>(first_c: char, it: &mut Peekable<T>) -> 
     let mut buf = String::from_iter([first_c]);
     loop {
         match it.peek() {
-            Some(c) if c.is_digit(10) => buf.push(*c),
+            Some(&c) if c.is_digit(10) => {
+                it.next();
+                buf.push(c);
+            }
             _ => return buf.parse::<i32>().unwrap(),
         }
     }

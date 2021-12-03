@@ -2,7 +2,7 @@ use std::{cell::Cell, rc::Rc};
 
 pub struct MessageReader {
     chars: Vec<char>,
-    pub /* temp */ pos: Rc<Cell<usize>>,
+    pos: Rc<Cell<usize>>,
 }
 
 pub struct SaveHandle {
@@ -10,8 +10,8 @@ pub struct SaveHandle {
     parent_pos: Rc<Cell<usize>>,
 }
 
-impl Drop for SaveHandle {
-    fn drop(&mut self) {
+impl SaveHandle {
+    pub fn restore(&self) {
         self.parent_pos.set(self.saved_pos);
     }
 }
@@ -24,17 +24,6 @@ impl MessageReader {
         }
     }
 
-    /// Save the position of the reader. Returns a handle intended to be used with the RAII pattern.
-    ///
-    /// Example:
-    ///
-    /// ```
-    /// {
-    ///     let _handle = reader.save();
-    ///     reader.next();
-    /// }
-    /// // After this block it's as if reader.next() never happened.
-    /// ```
     pub fn save(&self) -> SaveHandle {
         SaveHandle {
             saved_pos: self.pos.get(),
@@ -68,6 +57,7 @@ mod tests {
 
     #[test]
     fn test_simple() {
+        // XXX doesn't pass anymore
         let reader = MessageReader::new("abc");
         assert_eq!(reader.next(), Some('a'));
         {

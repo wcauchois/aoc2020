@@ -1,6 +1,6 @@
 mod lex;
-mod utils;
 mod message_reader;
+mod utils;
 
 use nom::branch::alt;
 use nom::combinator::{map, verify};
@@ -12,10 +12,10 @@ use std::fs::File;
 use std::io::{self, BufRead};
 
 use crate::lex::*;
-use crate::utils::*;
 use crate::message_reader::MessageReader;
+use crate::utils::*;
 
-const INPUT_FILENAME: &str = "testinput.txt";
+const INPUT_FILENAME: &str = "input.txt";
 
 #[derive(Debug)]
 struct RuleClause {
@@ -40,29 +40,25 @@ struct Rule {
 
 impl Rule {
     fn matches<Ctx: RuleEvalContext>(&self, reader: &MessageReader, ctx: &Ctx) -> bool {
-        println!("matching: [{}] {:?}; current_char {:?} & pos={}", self.idx, self.body, reader.peek(), reader.pos.get());
         match &self.body {
-            RuleBody::Literal{ lit } => match reader.next() {
+            RuleBody::Literal { lit } => match reader.next() {
                 Some(c) if *lit == c => true,
                 _ => false,
             },
-            RuleBody::Composite{ clauses } => {
+            RuleBody::Composite { clauses } => {
                 // Composite rule is true if any clauses match (in sequence)
-                // ??? IDK
+                let handle = reader.save();
                 for clause in clauses {
-                    let _handle = reader.save();
+                    handle.restore();
                     if (&clause.seq).into_iter().all(|item_idx| {
                         let item = ctx.get_rule(*item_idx);
                         item.matches(reader, ctx)
                     }) {
-                        println!(">> match {}", self.idx);
-                        // shouldn't backtrack
                         return true;
                     }
                 }
-                println!("|| no match {}", self.idx);
                 false
-            },
+            }
         }
     }
 
@@ -165,14 +161,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // println!("Parsed puzzle input: {:?}", puzzle_input);
 
     let rule0 = puzzle_input.get_rule(0);
-    println!("{:?}", rule0.matches_fully("ababbb", &puzzle_input));
-    // let mut num_matches = 0;
-    // for message in &puzzle_input.messages {
-    //     if rule0.matches_fully(message, &puzzle_input) {
-    //         num_matches += 1;
-    //     }
-    // }
-    // println!("Number of matches: {}", num_matches);
+    let mut num_matches = 0;
+    for message in &puzzle_input.messages {
+        if rule0.matches_fully(message, &puzzle_input) {
+            num_matches += 1;
+        }
+    }
+    println!("Number of matches: {}", num_matches);
 
     Ok(())
 }
